@@ -5,12 +5,14 @@ import plotly.graph_objects as go
 from sklearn.model_selection import train_test_split
 from streamlit_lottie import st_lottie
 import os
+from streamlit_searchbox import st_searchbox
 
 from data_fetcher import fetch_data
 from data_processor import preprocess_data, normalize_data, prepare_data
 from model_builder import build_model
 from visualization import build_predictions_df, plot_predictions
 from utils import load_lottie_file, footer
+from search_stock import search_data
 
 model_cache = {}
 
@@ -65,15 +67,20 @@ with col1:
 with col2:
     st.title('Horseless Trader')
 
-stock_list = ['AAPL', 'GOOGL', 'AMZN', 'MSFT', 'TSLA']
-selected_stock = st.selectbox('Select a stock', stock_list, key='stock_select', on_change=update_selection)
+# selected_stock = st.selectbox('Select a stock', stock_list, key='stock_select', on_change=update_selection)
+selected_stock = st_searchbox(
+    search_data,
+    placeholder="Ticker to the moon?",
+    key="update_selection",
+)
 
-data = fetch_data(selected_stock)
+if selected_stock is not None:
+    data = fetch_data(selected_stock.split(']')[0][1:])
 
-if st.button("Predict", disabled=st.session_state.predict_running):
+if st.button("Predict", disabled=st.session_state.predict_running or selected_stock is None):
     st.session_state.predict_running = True
 
-if st.session_state.predict_running:
+if st.session_state.predict_running and selected_stock is not None:
     pg_bar = st.progress(10, text='Doing some magic...')
     predictions = run_predictions(data)
     pg_bar.progress(60, text='Building DataFrame...')
