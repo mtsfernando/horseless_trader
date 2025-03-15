@@ -1,100 +1,18 @@
-import yfinance as yf
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from keras.models import Sequential
-from keras.layers import LSTM, Dense
-from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 from streamlit_lottie import st_lottie
-import json
 import os
 
+from data_fetcher import fetch_data
+from data_processor import preprocess_data, normalize_data, prepare_data
+from model_builder import build_model
+from visualization import build_predictions_df, plot_predictions
+from utils import load_lottie_file, footer
+
 model_cache = {}
-
-def load_lottie_file(file_path: str):
-    with open(file_path, "r") as f:
-        return json.load(f)
-
-def fetch_data(symbol):
-    loading_st = st.empty()
-    loading_st.write(f'Fetching data for {selected_stock}...')
-    stock = yf.Ticker(symbol)
-    data = stock.history(period="5y")
-    loading_st.empty()
-    st.metric(label="Latest price", value=f"${data['Close'].iloc[-1]:.2f}")
-    return data[['Close']]
-
-def preprocess_data(df):
-    df['SMA_50'] = df['Close'].rolling(window=50).mean()
-    df['EMA_50'] = df['Close'].ewm(span=20, adjust=False).mean()
-    df['Daily_Return'] = df['Close'].pct_change()
-    df['Log_Return'] = np.log(df['Close'] / df['Close'].shift(1))
-
-    delta = df['Close'].diff(1)
-    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-    rs = gain / loss
-
-    df['RSI_14'] = 100 - (100 / (1 + rs))
-    df['Middle_Band'] = df['Close'].rolling(window=20).mean()
-    df['Upper_Band'] = df['Middle_Band'] + (df['Close'].rolling(window=20).std() * 2)
-    df['Lower_Band'] = df['Middle_Band'] - (df['Close'].rolling(window=20).std() * 2)
-    df['Momemtum'] = df['Close'] - df['Close'].shift(4)
-    df['Volatility'] = df['Close'].rolling(window=21).std()
-
-    df.dropna(inplace=True)
-    return df
-
-def normalize_data(df):
-    scaler = MinMaxScaler()
-    scaled_data = scaler.fit_transform(df[['Close']])
-    return scaled_data, scaler
-
-def prepare_data(scaled_data, time_steps=60):
-    X, y = [], []
-    for i in range(time_steps, len(scaled_data)):
-        X.append(scaled_data[i - time_steps: i])
-        y.append(scaled_data[i, 0])
-
-    print(f"X Array Shape: {np.array(X).shape}, Y Array Shape: {np.array(y).shape}")
-    return np.array(X), np.array(y)
-
-def build_model(input_shape):
-    model = Sequential([
-        LSTM(50, return_sequences=True, input_shape=input_shape),
-        LSTM(50, return_sequences=False),
-        Dense(25),
-        Dense(1)
-    ])
-    model.compile(optimizer='adam', loss='mean_squared_error')
-    return model
-
-def build_predictions_df(predictions):
-    days = pd.date_range(start=pd.Timestamp.now() + pd.DateOffset(1), periods=10).strftime('%Y-%m-%d').tolist()
-    prediction_df = pd.DataFrame({
-        'Date':days,
-        'Predicted Price': predictions
-    })
-    return prediction_df
-
-def plot_predictions(prediction_df):
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=prediction_df['Date'],
-        y=prediction_df['Predicted Price'],
-        mode='lines+markers',
-        name='Predicted Price'
-    ))
-
-    fig.update_layout(
-        xaxis_title='Date',
-        yaxis_title='Price ($USD)',
-        template='plotly_dark'
-    )
-
-    st.plotly_chart(fig)
 
 def run_predictions(data):
     data = preprocess_data(data)
@@ -124,32 +42,6 @@ def run_predictions(data):
 
 def update_selection():
     st.session_state.predict_running = False
-
-def footer():
-    st.markdown(
-        """
-        <style>
-        .footer {
-            position: fixed;
-            left: 0;
-            bottom: 0;
-            width: 100%;
-            background-color: #e6e6fa;
-            color: #4f4f4f;
-            text-align: center;
-            padding: 10px;
-            font-size: 20px;
-            border-top: 1px solid #dcdcdc;
-        }
-        </style>
-        <div class="footer">
-            <p>
-                Created by MTS | <a href="https://github.com/mtsfernando" target="_blank">GitHub</a> | Built with the Lankan Spirit
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
 footer()
 
