@@ -18,13 +18,12 @@ def load_lottie_file(file_path: str):
         return json.load(f)
 
 def fetch_data(symbol):
-    price_st = st.empty()
     loading_st = st.empty()
     loading_st.write(f'Fetching data for {selected_stock}...')
     stock = yf.Ticker(symbol)
     data = stock.history(period="5y")
     loading_st.empty()
-    price_st.write(f"Latest price: ${data['Close'].iloc[-1]:.2f}")
+    st.metric(label="Latest price", value=f"${data['Close'].iloc[-1]:.2f}")
     return data[['Close']]
 
 def preprocess_data(df):
@@ -90,7 +89,6 @@ def plot_predictions(prediction_df):
     ))
 
     fig.update_layout(
-        title=f'{selected_stock} Predicted Price for Next 10 Days',
         xaxis_title='Date',
         yaxis_title='Price ($USD)',
         template='plotly_dark'
@@ -108,10 +106,9 @@ def run_predictions(data):
     model.fit(X_train, y_train, batch_size=32, epochs=5)
 
     loss = model.evaluate(X_test, y_test, verbose=0)
-    st.write(f'Model Evaluation - MSE: {loss:.4f}')
+    st.metric(label='MSE', value=f'{loss:.4f}')
 
     model_cache[selected_stock] = (model, scaler)
-    st.write('Predicting for 10 days...')
 
     predictions = []
     input_sequence = scaled_data[-60:]
@@ -154,6 +151,8 @@ def footer():
         unsafe_allow_html=True,
     )
 
+footer()
+
 #Init predict state
 if 'predict_running' not in st.session_state:
     st.session_state.predict_running = False
@@ -163,6 +162,9 @@ horse_lt_json = load_lottie_file(horse_lt_file_path)
 
 loader_lt_file_path = os.path.join("assets", "among-us.json")
 loader_lt_json = load_lottie_file(loader_lt_file_path)
+
+gradient_lt_file_path = os.path.join("assets", "gradient-loader.json")
+gradient_lt_json = load_lottie_file(gradient_lt_file_path)
 
 col1, col2 = st.columns([1, 4])
 with col1:
@@ -180,15 +182,26 @@ if st.button("Predict", disabled=st.session_state.predict_running):
     st.session_state.predict_running = True
 
 if st.session_state.predict_running:
-    pg_bar = st.progress(10, text='Predicting...')
+    pg_bar = st.progress(10, text='Doing some magic...')
     predictions = run_predictions(data)
     pg_bar.progress(60, text='Building DataFrame...')
     prediction_df = build_predictions_df(predictions)
     pg_bar.progress(80, text='Building View...')
-    st.write('Predicted Price')
+    st.divider()
+    col1, col2 = st.columns([1, 7])
+    with col1:
+        st_lottie(gradient_lt_json, speed=1)
+    with col2:
+        st.header('Predicted Price')
     st.table(prediction_df)
     pg_bar.progress(90, text='Plotting Graph...')
+    st.divider()
+    col1, col2 = st.columns([1, 7])
+    with col1:
+        st_lottie(gradient_lt_json, speed=1)
+    with col2:
+        st.header('10-Day Prediction')
     plot_predictions(prediction_df)
     pg_bar.progress(100, text='Done')
 
-footer()
+
