@@ -51,6 +51,10 @@ footer()
 if 'predict_running' not in st.session_state:
     st.session_state.predict_running = False
 
+if 'predict_clicked' not in st.session_state:
+    st.session_state.predict_clicked = False
+
+#Visual Elements
 horse_lt_file_path = os.path.join("assets", "horse-icon.json")
 horse_lt_json = load_lottie_file(horse_lt_file_path)
 
@@ -67,20 +71,20 @@ with col1:
 with col2:
     st.title('Horseless Trader')
 
-# selected_stock = st.selectbox('Select a stock', stock_list, key='stock_select', on_change=update_selection)
 selected_stock = st_searchbox(
     search_data,
     placeholder="Ticker to the moon?",
-    key="update_selection",
+    reset_function = lambda: st.session_state.__setitem__("predict_clicked", False)
 )
 
 if selected_stock is not None:
     data = fetch_data(selected_stock.split(']')[0][1:])
 
-if st.button("Predict", disabled=st.session_state.predict_running or selected_stock is None):
+if st.button("Predict", disabled=st.session_state.predict_running and selected_stock is None):
     st.session_state.predict_running = True
+    st.session_state.predict_clicked = True
 
-if st.session_state.predict_running and selected_stock is not None:
+if st.session_state.predict_running or (selected_stock is not None and st.session_state.predict_clicked):
     pg_bar = st.progress(10, text='Doing some magic...')
     predictions = run_predictions(data)
     pg_bar.progress(60, text='Building DataFrame...')
@@ -102,5 +106,4 @@ if st.session_state.predict_running and selected_stock is not None:
         st.header('10-Day Prediction')
     plot_predictions(prediction_df)
     pg_bar.progress(100, text='Done')
-
-
+    st.session_state.predict_running = False
