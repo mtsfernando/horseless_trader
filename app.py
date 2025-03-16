@@ -26,7 +26,8 @@ def title():
         st_lottie(horse_lt_json, speed=1, quality="low")
 
     with col2:
-        st.title('Horseless Trader')
+        st.title(':green[Horseless] :gray[Trader]')
+        st.header(":small[:gray[**:rocket: Tomorrow's trades with :green[AI-driven] stock predictions, :orange[today]. :chart_with_upwards_trend:**]]")
 
 def run_predictions(data, selected_stock):
     data = preprocess_data(data)
@@ -107,6 +108,7 @@ def user_interaction_fragment():
         pg_bar.progress(100, text='Done')
         st.session_state.predict_running = False
 
+st.set_page_config(page_title="Horseless Trader", page_icon="🐴")
 title()
 user_interaction_fragment()
 footer()
