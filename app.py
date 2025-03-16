@@ -16,7 +16,19 @@ from search_stock import search_data
 
 model_cache = {}
 
-def run_predictions(data):
+@st.fragment()
+def title():
+    horse_lt_file_path = os.path.join("assets", "horse-icon.json")
+    horse_lt_json = load_lottie_file(horse_lt_file_path)
+
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        st_lottie(horse_lt_json, speed=1, quality="low")
+
+    with col2:
+        st.title('Horseless Trader')
+
+def run_predictions(data, selected_stock):
     data = preprocess_data(data)
     scaled_data, scaler = normalize_data(data)
 
@@ -42,68 +54,59 @@ def run_predictions(data):
     predictions = scaler.inverse_transform(np.array(predictions).reshape(-1, 1))[:,0]
     return predictions
 
-def update_selection():
-    st.session_state.predict_running = False
+@st.fragment()
+def user_interaction_fragment():
 
+    #Visuals
+    gradient_lt_file_path = os.path.join("assets", "gradient-loader.json")
+    gradient_lt_json = load_lottie_file(gradient_lt_file_path)
+    loader_lt_file_path = os.path.join("assets", "among-us.json")
+    loader_lt_json = load_lottie_file(loader_lt_file_path)
+
+    #Init predict state
+    if 'predict_running' not in st.session_state:
+        st.session_state.predict_running = False
+
+    if 'predict_clicked' not in st.session_state:
+        st.session_state.predict_clicked = False
+    
+    selected_stock = st_searchbox(
+        search_data,
+        placeholder="Ticker to the moon?",
+        reset_function = lambda: st.session_state.__setitem__("predict_clicked", False)
+    )
+
+    if selected_stock is not None:
+        data = fetch_data(selected_stock.split(']')[0][1:])
+
+    if st.button("Predict", disabled=st.session_state.predict_running and selected_stock is None):
+        st.session_state.predict_running = True
+        st.session_state.predict_clicked = True
+
+    if selected_stock is not None and st.session_state.predict_clicked:
+        pg_bar = st.progress(10, text='Doing some magic...')
+        predictions = run_predictions(data, selected_stock)
+        pg_bar.progress(60, text='Building DataFrame...')
+        prediction_df = build_predictions_df(predictions)
+        pg_bar.progress(80, text='Building View...')
+        st.divider()
+        col1, col2 = st.columns([1, 7])
+        with col1:
+            st_lottie(gradient_lt_json, speed=1, quality="low")
+        with col2:
+            st.header('Predicted Price')
+        st.table(prediction_df)
+        pg_bar.progress(90, text='Plotting Graph...')
+        st.divider()
+        col1, col2 = st.columns([1, 7])
+        with col1:
+            st_lottie(gradient_lt_json, speed=1, quality="low")
+        with col2:
+            st.header('10-Day Prediction')
+        plot_predictions(prediction_df)
+        pg_bar.progress(100, text='Done')
+        st.session_state.predict_running = False
+
+title()
+user_interaction_fragment()
 footer()
-
-#Init predict state
-if 'predict_running' not in st.session_state:
-    st.session_state.predict_running = False
-
-if 'predict_clicked' not in st.session_state:
-    st.session_state.predict_clicked = False
-
-#Visual Elements
-horse_lt_file_path = os.path.join("assets", "horse-icon.json")
-horse_lt_json = load_lottie_file(horse_lt_file_path)
-
-loader_lt_file_path = os.path.join("assets", "among-us.json")
-loader_lt_json = load_lottie_file(loader_lt_file_path)
-
-gradient_lt_file_path = os.path.join("assets", "gradient-loader.json")
-gradient_lt_json = load_lottie_file(gradient_lt_file_path)
-
-col1, col2 = st.columns([1, 4])
-with col1:
-    st_lottie(horse_lt_json, speed=1)
-
-with col2:
-    st.title('Horseless Trader')
-
-selected_stock = st_searchbox(
-    search_data,
-    placeholder="Ticker to the moon?",
-    reset_function = lambda: st.session_state.__setitem__("predict_clicked", False)
-)
-
-if selected_stock is not None:
-    data = fetch_data(selected_stock.split(']')[0][1:])
-
-if st.button("Predict", disabled=st.session_state.predict_running and selected_stock is None):
-    st.session_state.predict_running = True
-    st.session_state.predict_clicked = True
-
-if st.session_state.predict_running or (selected_stock is not None and st.session_state.predict_clicked):
-    pg_bar = st.progress(10, text='Doing some magic...')
-    predictions = run_predictions(data)
-    pg_bar.progress(60, text='Building DataFrame...')
-    prediction_df = build_predictions_df(predictions)
-    pg_bar.progress(80, text='Building View...')
-    st.divider()
-    col1, col2 = st.columns([1, 7])
-    with col1:
-        st_lottie(gradient_lt_json, speed=1)
-    with col2:
-        st.header('Predicted Price')
-    st.table(prediction_df)
-    pg_bar.progress(90, text='Plotting Graph...')
-    st.divider()
-    col1, col2 = st.columns([1, 7])
-    with col1:
-        st_lottie(gradient_lt_json, speed=1)
-    with col2:
-        st.header('10-Day Prediction')
-    plot_predictions(prediction_df)
-    pg_bar.progress(100, text='Done')
-    st.session_state.predict_running = False
